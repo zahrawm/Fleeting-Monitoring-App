@@ -26,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize the search listener
+   
     _searchController.addListener(_onSearchChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -54,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // New debouncer implementation to avoid excessive filtering
+ 
   Timer? _debounce;
   void _onSearchChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -89,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       setState(() {
         _isSearching = true;
-        // Use the search method from CarLocationProvider
+        
         _filteredCars = carProvider.searchCars(query);
       });
     }
@@ -207,10 +207,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return carProvider.markers;
     }
 
-    // Get only the filtered car IDs
+    
     Set<String> filteredCarIds = _filteredCars.map((car) => car.id).toSet();
 
-    // Filter markers based on the filtered car IDs
+   
     return carProvider.markers.where((marker) {
       return filteredCarIds.contains(marker.markerId.value);
     }).toSet();
@@ -271,7 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
         timestamp: DateTime.now(),
       );
 
-      // Actually save the car data to storage
+      
       storageProvider.saveCarData(carData);
 
       if (_selectedCar != null && _selectedCar!.id == car.id) {
@@ -293,19 +293,17 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).pushNamed('/saved_cars');
   }
 
-  // Update camera to show all filtered cars
   void _updateCameraToShowFilteredCars() {
     if (_filteredCars.isEmpty || _mapController == null) return;
 
     if (_filteredCars.length == 1) {
-      // If only one car, zoom to it
+     
       _mapController!.animateCamera(
         CameraUpdate.newLatLngZoom(_filteredCars.first.location, 15),
       );
       return;
     }
 
-    // Calculate bounds to fit all filtered cars
     double minLat = _filteredCars.first.location.latitude;
     double maxLat = _filteredCars.first.location.latitude;
     double minLng = _filteredCars.first.location.longitude;
@@ -318,7 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (car.location.longitude > maxLng) maxLng = car.location.longitude;
     }
 
-    // Add padding
+   
     final padding = 0.01;
     minLat -= padding;
     maxLat += padding;
@@ -391,7 +389,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   contentPadding: EdgeInsets.symmetric(vertical: 15),
                 ),
                 onSubmitted: (_) {
-                  // When user presses enter/search
+                 
                   if (_filteredCars.isNotEmpty) {
                     _updateCameraToShowFilteredCars();
                   }
@@ -913,10 +911,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     try {
-      // Add the car to the provider which manages map markers
+     
       Provider.of<CarLocationProvider>(context, listen: false).addCar(newCar);
 
-      // Also save it to local storage
+     
       final storageProvider = Provider.of<CarStorageProvider>(
         context,
         listen: false,
