@@ -26,7 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_filterCars);
+    // Initialize the search listener
+    _searchController.addListener(_onSearchChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final carProvider = Provider.of<CarLocationProvider>(
@@ -47,10 +48,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _searchController.removeListener(_filterCars);
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _autoRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  // New debouncer implementation to avoid excessive filtering
+  Timer? _debounce;
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _filterCars();
+    });
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -69,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       listen: false,
     );
-    final query = _searchController.text;
+    final query = _searchController.text.trim();
 
     if (query.isEmpty) {
       setState(() {
@@ -79,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       setState(() {
         _isSearching = true;
-
+        // Use the search method from CarLocationProvider
         _filteredCars = carProvider.searchCars(query);
       });
     }
@@ -197,8 +207,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return carProvider.markers;
     }
 
+    // Get only the filtered car IDs
     Set<String> filteredCarIds = _filteredCars.map((car) => car.id).toSet();
 
+    // Filter markers based on the filtered car IDs
     return carProvider.markers.where((marker) {
       return filteredCarIds.contains(marker.markerId.value);
     }).toSet();
@@ -237,11 +249,9 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-  
     if (_selectedCar != null) {
       _saveSingleCar(_selectedCar!, storageProvider);
     } else {
-     
       for (var car in cars) {
         _saveSingleCar(car, storageProvider);
       }
@@ -258,11 +268,12 @@ class _HomeScreenState extends State<HomeScreen> {
         carName: car.name,
         latitude: car.location.latitude,
         longitude: car.location.longitude,
-        
         timestamp: DateTime.now(),
       );
 
-     
+      // Actually save the car data to storage
+      storageProvider.saveCarData(carData);
+
       if (_selectedCar != null && _selectedCar!.id == car.id) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${car.name} location saved locally')),
@@ -282,10 +293,54 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).pushNamed('/saved_cars');
   }
 
+  // Update camera to show all filtered cars
+  void _updateCameraToShowFilteredCars() {
+    if (_filteredCars.isEmpty || _mapController == null) return;
+
+    if (_filteredCars.length == 1) {
+      // If only one car, zoom to it
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(_filteredCars.first.location, 15),
+      );
+      return;
+    }
+
+    // Calculate bounds to fit all filtered cars
+    double minLat = _filteredCars.first.location.latitude;
+    double maxLat = _filteredCars.first.location.latitude;
+    double minLng = _filteredCars.first.location.longitude;
+    double maxLng = _filteredCars.first.location.longitude;
+
+    for (var car in _filteredCars) {
+      if (car.location.latitude < minLat) minLat = car.location.latitude;
+      if (car.location.latitude > maxLat) maxLat = car.location.latitude;
+      if (car.location.longitude < minLng) minLng = car.location.longitude;
+      if (car.location.longitude > maxLng) maxLng = car.location.longitude;
+    }
+
+    // Add padding
+    final padding = 0.01;
+    minLat -= padding;
+    maxLat += padding;
+    minLng -= padding;
+    maxLng += padding;
+
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(minLat, minLng),
+          northeast: LatLng(maxLat, maxLng),
+        ),
+        50,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: Text('Fleet Monitoring'),
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),
@@ -335,6 +390,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(vertical: 15),
                 ),
+                onSubmitted: (_) {
+                  // When user presses enter/search
+                  if (_filteredCars.isNotEmpty) {
+                    _updateCameraToShowFilteredCars();
+                  }
+                },
               ),
             ),
           ),
@@ -353,7 +414,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 : LatLng(-1.94995, 30.05885),
                         zoom: 14,
                       ),
-
                       markers: _getFilteredMarkers(carProvider),
                       polylines: _getFilteredPolylines(carProvider),
                       myLocationEnabled: true,
@@ -394,6 +454,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Positioned(
                     top: 10,
                     left: 16,
+                    right: 16,
                     child: Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: 12,
@@ -410,19 +471,33 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      child: Text(
-                        '${_filteredCars.length} car(s) found',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey[700],
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${_filteredCars.length} car(s) found',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                          if (_filteredCars.isNotEmpty)
+                            TextButton(
+                              onPressed: _updateCameraToShowFilteredCars,
+                              child: Text('Show All'),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
 
                 if (_isSearching && _filteredCars.isNotEmpty)
                   Positioned(
-                    top: 0,
+                    top: 50,
                     left: 0,
                     right: 0,
                     child: Container(
@@ -463,7 +538,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 if (_isSearching && _filteredCars.isEmpty)
                   Positioned(
-                    top: 0,
+                    top: 50,
                     left: 0,
                     right: 0,
                     child: Container(
@@ -838,7 +913,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     try {
+      // Add the car to the provider which manages map markers
       Provider.of<CarLocationProvider>(context, listen: false).addCar(newCar);
+
+      // Also save it to local storage
+      final storageProvider = Provider.of<CarStorageProvider>(
+        context,
+        listen: false,
+      );
+      _saveSingleCar(newCar, storageProvider);
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('New vehicle added successfully')));

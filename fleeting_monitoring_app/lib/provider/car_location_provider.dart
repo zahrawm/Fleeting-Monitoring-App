@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
 import 'package:cloud_firestore/cloud_firestore.dart';
+// At the top of the file with other imports
 import 'package:intl/intl.dart';
 
 class Car {

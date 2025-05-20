@@ -36,23 +36,23 @@ class SavedCarsScreen extends StatelessWidget {
             children: [
               if (provider.lastSavedCar != null)
                 _buildLastSavedCarCard(provider.lastSavedCar!),
-              
+
               const Padding(
                 padding: EdgeInsets.all(16.0),
                 child: Text(
                   'History',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
-             
+
               Expanded(
                 child: ListView.builder(
                   itemCount: provider.savedCars.length,
                   itemBuilder: (context, index) {
-                    final carData = provider.savedCars[provider.savedCars.length - 1 - index];
+                    final carData =
+                        provider.savedCars[provider.savedCars.length -
+                            1 -
+                            index];
                     return _buildCarListItem(carData);
                   },
                 ),
@@ -81,16 +81,23 @@ class SavedCarsScreen extends StatelessWidget {
           children: [
             const Text(
               'Last Saved Location',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text('Car: ${carData.carName}'),
             Text('Latitude: ${carData.latitude.toStringAsFixed(6)}'),
             Text('Longitude: ${carData.longitude.toStringAsFixed(6)}'),
             Text('Saved: ${_formatDateTime(carData.timestamp)}'),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton(
+                  onPressed: () {},
+                  child: const Text('Show on Map'),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -102,10 +109,15 @@ class SavedCarsScreen extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: ListTile(
         title: Text(carData.carName),
-        subtitle: Text('${_formatDateTime(carData.timestamp)}\nLat: ${carData.latitude.toStringAsFixed(6)}, Lng: ${carData.longitude.toStringAsFixed(6)}'),
+        subtitle: Text(
+          '${_formatDateTime(carData.timestamp)}\nLat: ${carData.latitude.toStringAsFixed(6)}, Lng: ${carData.longitude.toStringAsFixed(6)}',
+        ),
         isThreeLine: true,
-        leading: const CircleAvatar(
-          child: Icon(Icons.directions_car),
+        leading: const CircleAvatar(child: Icon(Icons.directions_car)),
+        trailing: IconButton(
+          icon: const Icon(Icons.map),
+          onPressed: () {},
+          tooltip: 'Show on Map',
         ),
       ),
     );
@@ -118,25 +130,31 @@ class SavedCarsScreen extends StatelessWidget {
   void _showClearDataDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Clear All Data'),
-        content: const Text('Are you sure you want to delete all saved car data?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-            },
-            child: const Text('Cancel'),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Clear All Data'),
+            content: const Text(
+              'Are you sure you want to delete all saved car data?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                },
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Provider.of<CarStorageProvider>(
+                    context,
+                    listen: false,
+                  ).clearAllData();
+                  Navigator.of(ctx).pop();
+                },
+                child: const Text('Clear'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Provider.of<CarStorageProvider>(context, listen: false).clearAllData();
-              Navigator.of(ctx).pop();
-            },
-            child: const Text('Clear'),
-          ),
-        ],
-      ),
     );
   }
 }
